@@ -15,9 +15,11 @@ app.get("/", (req, res) => {
   res.json({ message: "ProgressSync API is running 🚀" });
 });
 
+
+const auth = require("./src/middlewares/auth");
 // Placeholder routes (you’ll build these later)
 app.use("/auth", require("./src/routes/auth"));
-app.use("/tasks", require("./src/routes/tasks"));
+app.use("/tasks", auth , require("./src/routes/tasks"));
 app.use("/dashboard", require("./src/routes/dashboard"));
 
 // Start server
