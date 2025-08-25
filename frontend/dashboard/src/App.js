@@ -15,7 +15,7 @@ function App() {
   return (
     <div style={{ fontFamily: "Arial", padding: "20px" }}>
       <h1>📊 User Dashboard</h1>
-      <p><strong>Today’s Tasks:</strong> {dashboard.todayTasks}</p>
+      <p><strong>Today's Tasks:</strong> {dashboard.todayTasks}</p>
       <p><strong>Completed Tasks:</strong> {dashboard.completedTasks}</p>
       <p><strong>Focus Minutes:</strong> {dashboard.focusMinutes}</p>
       <p>
