@@ -22,5 +22,11 @@
     "email": "test4@example.com",
     "name": "todoUser1",
     "password": "$2b$10$xc7bg3pGugloe2gYGry6NOBa15dfDo.FlWPlCwadLrM/Wv7mr5NBa"
+  },
+  {
+    "id": "1758631944255",
+    "email": "sharma.adi1217@gmail.com",
+    "name": "Aditya Sharma",
+    "password": "$2b$10$N9VSfPsEaJQ37G56wNGW8.kbeSZoZ0y0jsq93PpIX9HYyQuqR5uue"
   }
 ]
