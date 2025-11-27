@@ -1,16 +1,14 @@
-// a bridge between BEE and Todoist with local sync
+// Todoist Sync with MongoDB
 
 const express = require("express");
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
 const authMiddleware = require("../middlewares/auth");
+const TodoistTask = require("../models/TodoistTask");
 
 const router = express.Router();
-const TODOIST_BASE = "https://api.todoist.com/rest/v2";
-const DATA_FILE = path.join(__dirname, "../../data/todoistTasks.json");
 
-// 🔹 Axios client with Todoist token
+const TODOIST_BASE = "https://api.todoist.com/rest/v2";
+
 const todoistClient = axios.create({
   baseURL: TODOIST_BASE,
   headers: {
@@ -19,26 +17,41 @@ const todoistClient = axios.create({
   },
 });
 
-// 🔹 Helper: Save tasks locally
-function saveLocalTasks(tasks) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(tasks, null, 2));
-}
-
-// ✅ Get all tasks from Todoist (and sync locally)
+/**
+ * GET /todoist/tasks
+ * Fetch tasks from Todoist API → Store them in MongoDB → Return to user
+ */
 router.get("/tasks", authMiddleware, async (req, res) => {
   try {
     const response = await todoistClient.get("/tasks");
 
-    // Save tasks to local JSON
-    saveLocalTasks(response.data);
+    // Remove old tasks for this user before syncing new ones
+    await TodoistTask.deleteMany({ userId: req.user.id });
 
-    res.json(response.data);
+    const todoistTasks = response.data.map((t) => ({
+      userId: req.user.id,
+      todoistId: t.id,
+      content: t.content,
+      isCompleted: t.is_completed || false,
+      raw: t,
+    }));
+
+    await TodoistTask.insertMany(todoistTasks);
+
+    res.json(todoistTasks);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch tasks", details: err.message });
+    console.error(err);
+    res.status(500).json({
+      error: "Failed to fetch Todoist tasks",
+      details: err.message,
+    });
   }
 });
 
-// ✅ Add a new task in Todoist (and update local copy)
+/**
+ * POST /todoist/tasks
+ * Add task to Todoist → Save in MongoDB
+ */
 router.post("/tasks", authMiddleware, async (req, res) => {
   try {
     const { content } = req.body;
@@ -46,69 +59,72 @@ router.post("/tasks", authMiddleware, async (req, res) => {
 
     const response = await todoistClient.post("/tasks", { content });
 
-    // Append new task locally
-    let existing = [];
-    if (fs.existsSync(DATA_FILE)) {
-      existing = JSON.parse(fs.readFileSync(DATA_FILE));
-    }
-    existing.push(response.data);
-    saveLocalTasks(existing);
+    const saved = await TodoistTask.create({
+      userId: req.user.id,
+      todoistId: response.data.id,
+      content: response.data.content,
+      isCompleted: false,
+      raw: response.data,
+    });
 
-    res.status(201).json(response.data);
+    res.status(201).json(saved);
   } catch (err) {
-    res.status(500).json({ error: "Failed to create task", details: err.message });
+    console.error(err);
+    res.status(500).json({
+      error: "Failed to create Todoist task",
+      details: err.message,
+    });
   }
 });
 
-// ✅ Complete (close) a Todoist task (and update local JSON)
+/**
+ * POST /todoist/tasks/:id/close
+ * Close task on Todoist → Update in MongoDB
+ */
 router.post("/tasks/:id/close", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+
     await todoistClient.post(`/tasks/${id}/close`);
 
-    // Update local copy: mark task as completed
-    if (fs.existsSync(DATA_FILE)) {
-      let tasks = JSON.parse(fs.readFileSync(DATA_FILE));
-      tasks = tasks.map(t => (t.id == id ? { ...t, is_completed: true } : t));
-      saveLocalTasks(tasks);
-    }
+    await TodoistTask.findOneAndUpdate(
+      { todoistId: id, userId: req.user.id },
+      { isCompleted: true }
+    );
 
-    res.json({ message: "Task completed in Todoist" });
+    res.json({ message: "Task marked completed in Todoist" });
   } catch (err) {
-    res.status(500).json({ error: "Failed to complete task", details: err.message });
+    console.error(err);
+    res.status(500).json({
+      error: "Failed to complete Todoist task",
+      details: err.message,
+    });
   }
 });
 
-// ✅ Delete a task from Todoist (and local JSON)
+/**
+ * DELETE /todoist/tasks/:id
+ * Delete from Todoist → Delete from MongoDB
+ */
 router.delete("/tasks/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+
     await todoistClient.delete(`/tasks/${id}`);
 
-    // Update local copy: remove task
-    if (fs.existsSync(DATA_FILE)) {
-      let tasks = JSON.parse(fs.readFileSync(DATA_FILE));
-      tasks = tasks.filter(t => t.id != id);
-      saveLocalTasks(tasks);
-    }
+    await TodoistTask.deleteOne({
+      todoistId: id,
+      userId: req.user.id,
+    });
 
     res.json({ message: "Task deleted from Todoist" });
   } catch (err) {
-    res.status(500).json({ error: "Failed to delete task", details: err.message });
+    console.error(err);
+    res.status(500).json({
+      error: "Failed to delete Todoist task",
+      details: err.message,
+    });
   }
 });
 
 module.exports = router;
-
-
-
-
-// Login → get JWT.
-
-// GET /todoist/tasks → see existing tasks.
-
-// POST /todoist/tasks → add a new one.
-
-// POST /todoist/tasks/:id/close → mark it done.
-
-// DELETE /todoist/tasks/:id → remove it.
