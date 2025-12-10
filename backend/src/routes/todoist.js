@@ -18,6 +18,43 @@ const todoistClient = axios.create({
 });
 
 /**
+ * GET /todoist/sync
+ * Sync Todoist tasks to local database (called from UI)
+ */
+router.get("/sync", authMiddleware, async (req, res) => {
+  try {
+    const response = await todoistClient.get("/tasks");
+
+    // Remove old tasks for this user before syncing new ones
+    await TodoistTask.deleteMany({ userId: req.user.id });
+
+    const todoistTasks = response.data.map((t) => ({
+      userId: req.user.id,
+      todoistId: t.id,
+      content: t.content,
+      isCompleted: t.is_completed || false,
+      raw: t,
+    }));
+
+    await TodoistTask.insertMany(todoistTasks);
+
+    res.json({
+      success: true,
+      message: `Synced ${todoistTasks.length} tasks from Todoist`,
+      taskCount: todoistTasks.length,
+      tasks: todoistTasks,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to sync Todoist tasks",
+      details: err.message,
+    });
+  }
+});
+
+/**
  * GET /todoist/tasks
  * Fetch tasks from Todoist API → Store them in MongoDB → Return to user
  */

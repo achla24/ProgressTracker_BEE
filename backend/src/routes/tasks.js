@@ -71,7 +71,7 @@ router.post("/",authMiddleware,async (req,res)=>{
     const newTask = await Task.create({
       userId: req.user.id,
       title,
-      complete:false
+      completed: false
     })
     res.status(201).json(newTask)
   }catch(err){
@@ -88,15 +88,19 @@ router.post("/",authMiddleware,async (req,res)=>{
 //for MongoDB
 router.patch("/:id",authMiddleware,async(req,res)=>{
   const {id} = req.params
-  const {title,completed} = req.body   //new title and completed in json body
+  const {title,completed} = req.body
 
   try{
-    const updated = await Task.findByIdAndUpdate(
-      {Id:id,userId:req.user.id},
-      {$set: {title,completed}},
+    const updateData = {};
+    if(title !== undefined) updateData.title = title;
+    if(completed !== undefined) updateData.completed = completed;
+
+    const updated = await Task.findOneAndUpdate(
+      {_id:id,userId:req.user.id},
+      {$set: updateData},
       {new:true}
     )
-    if(!updated) res.status(500).json({error :"task not found/updated"})
+    if(!updated) return res.status(404).json({error :"task not found/updated"})
     res.json(updated)
   }catch(err){
     console.error(err)
