@@ -1,12 +1,5 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
-
-// mongoose.connect(process.env.MONGODB_URI)
-mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log("🚀 MongoDB connected successfully"))
-  .catch((err) => console.log("❌ MongoDB connection error:", err));
-
 const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
@@ -18,7 +11,6 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan("dev"));
 app.use("/google", require("./src/routes/google"));
-
 
 // --- Simple routes for now ---
 app.get("/", (req, res) => {
@@ -32,6 +24,16 @@ app.use("/tasks", auth , require("./src/routes/tasks"));
 app.use("/dashboard", require("./src/routes/dashboard"));
 app.use("/todoist", require("./src/routes/todoist"));
 
-// Start server
+// Connect to MongoDB and start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log("🚀 MongoDB connected successfully");
+    app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+  })
+  .catch((err) => {
+    console.log("❌ MongoDB connection error:", err);
+    process.exit(1);
+  });
