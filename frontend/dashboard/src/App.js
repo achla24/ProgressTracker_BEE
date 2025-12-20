@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Navigation from './components/Navigation';
 import ProtectedRoute from './components/ProtectedRoute';
+import { socket } from "./socket";
 
 // Import Pages
 import Login from './pages/Login';
@@ -14,9 +15,29 @@ import FocusTimer from './pages/FocusTimer';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 
+//for meeting room:-
+import CreateRoom from "./pages/StudyRoom/CreateRoom";
+import JoinRoom from "./pages/StudyRoom/JoinRoom";
+import Room from "./pages/StudyRoom/Room";
+
 import './App.css';
 
 function App() {
+  useEffect(() => {
+    socket.on("connect", () => {
+      console.log("🟢 Frontend connected via WebSocket. Socket ID:", socket.id);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("🔴 Frontend disconnected from WebSocket");
+    });
+
+    return () => {
+      socket.off("connect");
+      socket.off("disconnect");
+    };
+  }, []);
+
   return (
     <AuthProvider>
       <Router>
@@ -99,7 +120,7 @@ function App() {
         </div>
       </Router>
     </AuthProvider>
-  );
+  )
 }
 
 export default App;
