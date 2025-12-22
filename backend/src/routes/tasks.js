@@ -5,7 +5,7 @@ const authMiddleware = require("../middlewares/auth");
 const Task = require("../models/Task")
 
 const router = express.Router();
-const TASKS_DIR = path.join(__dirname, "../../data/tasks");
+// const TASKS_DIR = path.join(__dirname, "../../data/tasks");
 
 //---------FUNC FOR JSON FILES-------//
 
@@ -36,9 +36,19 @@ const TASKS_DIR = path.join(__dirname, "../../data/tasks");
 
 //for MongoDB:-
 router.get("/",authMiddleware,async(req,res)=>{
+  const {from, to} = req.query
+
   try{
-    const tasks = await Task.find({userId:req.user.id}).sort({createdAt : -1})
-    res.json(tasks)
+    const filter = {userId : req.user.id}
+    if(from && to){
+      filter.dueDate = {
+        $gte : new Date(from),
+        $lte : new Date(to)
+      }
+    }
+    // Use Mongoose sorting instead of Array.toSorted
+    const tasks = await Task.find(filter).sort({ dueDate: 1, createdAt: -1 });
+    res.json(tasks);
   }catch(err){
     console.log(err);
     res.status(500).json({error: "issue fetching tasks"})
@@ -64,19 +74,21 @@ router.get("/",authMiddleware,async(req,res)=>{
 
 //for MongoDB:-
 router.post("/",authMiddleware,async (req,res)=>{
-  const {title} = req.body
+  const {title,dueDate} = req.body
   if(!title) return res.status(400).json({error: "title is required"})
 
   try{
     const newTask = await Task.create({
       userId: req.user.id,
       title,
-      completed: false
+      completed: false,
+      dueDate: dueDate ? new Date(dueDate) : null
     })
     res.status(201).json(newTask)
   }catch(err){
-    console.log(err)
-    res.status(500).json({error: "server error"})
+    console.error("Create task error:", err);  // <-- Add this
+  res.status(500).json({ error: "server error" });
+
   }
 })
 
@@ -88,12 +100,13 @@ router.post("/",authMiddleware,async (req,res)=>{
 //for MongoDB
 router.patch("/:id",authMiddleware,async(req,res)=>{
   const {id} = req.params
-  const {title,completed} = req.body
+  const {title,completed,dueDate} = req.body
 
   try{
     const updateData = {};
     if(title !== undefined) updateData.title = title;
     if(completed !== undefined) updateData.completed = completed;
+    if(dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null;
 
     const updated = await Task.findOneAndUpdate(
       {_id:id,userId:req.user.id},
