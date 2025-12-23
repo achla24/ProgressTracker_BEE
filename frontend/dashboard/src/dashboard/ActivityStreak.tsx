@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import axios from "axios";
 
 const months = ["Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
 
 export function ActivityStreak() {
   const { token } = useAuth();

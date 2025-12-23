@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { CheckCircle } from "lucide-react";
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
 
 type AuthMode = "signin" | "signup";
 
