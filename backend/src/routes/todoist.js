@@ -4,17 +4,45 @@ const express = require("express");
 const axios = require("axios");
 const authMiddleware = require("../middlewares/auth");
 const TodoistTask = require("../models/TodoistTask");
+const User = require("../models/User");
 
 const router = express.Router();
 
 const TODOIST_BASE = "https://api.todoist.com/rest/v2";
 
-const todoistClient = axios.create({
-  baseURL: TODOIST_BASE,
-  headers: {
-    Authorization: `Bearer ${process.env.TODOIST_API_TOKEN}`,
-    "Content-Type": "application/json",
-  },
+// Helper to get Todoist client for a specific user
+async function getTodoistClient(userId) {
+  const user = await User.findById(userId);
+  const token = user?.todoistToken || process.env.TODOIST_API_TOKEN;
+
+  if (!token || token === "your_todoist_token_here") {
+    throw new Error("Todoist API token not configured for this user");
+  }
+
+  return axios.create({
+    baseURL: TODOIST_BASE,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+}
+
+/**
+ * POST /todoist/config
+ * Save user's Todoist API Token
+ */
+router.post("/config", authMiddleware, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: "Token is required" });
+
+    await User.findByIdAndUpdate(req.user.id, { todoistToken: token });
+    res.json({ message: "Todoist token saved successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to save token" });
+  }
 });
 
 /**
@@ -23,7 +51,8 @@ const todoistClient = axios.create({
  */
 router.get("/sync", authMiddleware, async (req, res) => {
   try {
-    const response = await todoistClient.get("/tasks");
+    const client = await getTodoistClient(req.user.id);
+    const response = await client.get("/tasks");
 
     // Remove old tasks for this user before syncing new ones
     await TodoistTask.deleteMany({ userId: req.user.id });
@@ -60,7 +89,8 @@ router.get("/sync", authMiddleware, async (req, res) => {
  */
 router.get("/tasks", authMiddleware, async (req, res) => {
   try {
-    const response = await todoistClient.get("/tasks");
+    const client = await getTodoistClient(req.user.id);
+    const response = await client.get("/tasks");
 
     // Remove old tasks for this user before syncing new ones
     await TodoistTask.deleteMany({ userId: req.user.id });
@@ -94,7 +124,8 @@ router.post("/tasks", authMiddleware, async (req, res) => {
     const { content } = req.body;
     if (!content) return res.status(400).json({ error: "Task content is required" });
 
-    const response = await todoistClient.post("/tasks", { content });
+    const client = await getTodoistClient(req.user.id);
+    const response = await client.post("/tasks", { content });
 
     const saved = await TodoistTask.create({
       userId: req.user.id,
@@ -106,10 +137,10 @@ router.post("/tasks", authMiddleware, async (req, res) => {
 
     res.status(201).json(saved);
   } catch (err) {
-    console.error(err);
+    console.error("Todoist API Error:", err.response?.data || err.message);
     res.status(500).json({
       error: "Failed to create Todoist task",
-      details: err.message,
+      details: err.response?.data || err.message,
     });
   }
 });
@@ -122,7 +153,8 @@ router.post("/tasks/:id/close", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
-    await todoistClient.post(`/tasks/${id}/close`);
+    const client = await getTodoistClient(req.user.id);
+    await client.post(`/tasks/${id}/close`);
 
     await TodoistTask.findOneAndUpdate(
       { todoistId: id, userId: req.user.id },
@@ -147,7 +179,8 @@ router.delete("/tasks/:id", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
 
-    await todoistClient.delete(`/tasks/${id}`);
+    const client = await getTodoistClient(req.user.id);
+    await client.delete(`/tasks/${id}`);
 
     await TodoistTask.deleteOne({
       todoistId: id,
