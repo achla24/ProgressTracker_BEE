@@ -144,7 +144,3 @@ Repository owner: achla24
 GitHub: https://github.com/achla24
 
 ---
-
-If you'd like, I can:
-- Replace placeholders with exact env var names and a full endpoint list by scanning `backend/src` route files, or
-- Commit this README.md directly to the repository for you. Which would you prefer?
