@@ -13,8 +13,6 @@ interface Task {
   id?: string;
   title: string;
   completed: boolean;
-  dueDate?: string;
-  createdAt?: string;
 }
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:5001";
@@ -26,7 +24,6 @@ export function TaskList() {
   const [isAdding, setIsAdding] = useState(false);
   const [isAddingTodoist, setIsAddingTodoist] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskDate, setNewTaskDate] = useState("");
   const [newTodoistTaskTitle, setNewTodoistTaskTitle] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoadingTasks, setIsLoadingTasks] = useState(true);
@@ -41,17 +38,8 @@ export function TaskList() {
   const fetchTasks = async () => {
     try {
       setIsLoadingTasks(true);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
       const response = await axios.get(`${API_BASE_URL}/tasks`, {
         headers: { Authorization: `Bearer ${token}` },
-        params: {
-          from: today.toISOString(),
-          to: tomorrow.toISOString()
-        }
       });
       setTasks(response.data || []);
     } catch (err) {
@@ -90,22 +78,11 @@ export function TaskList() {
     try {
       const response = await axios.post(
         `${API_BASE_URL}/tasks`,
-        { 
-          title: newTaskTitle.trim(),
-          dueDate: newTaskDate ? new Date(newTaskDate) : new Date()
-        },
+        { title: newTaskTitle.trim() },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      
-      // Only add to list if due date is today
-      const taskDate = new Date(response.data.dueDate);
-      const today = new Date();
-      if (taskDate.toDateString() === today.toDateString()) {
-        setTasks([...tasks, response.data]);
-      }
-      
+      setTasks([...tasks, response.data]);
       setNewTaskTitle("");
-      setNewTaskDate("");
       setIsAdding(false);
     } catch (err) {
       console.error("Failed to add task:", err);
@@ -229,40 +206,28 @@ export function TaskList() {
         </div>
 
         {isAdding && (
-          <div className="flex flex-col gap-2 mb-4">
-            <div className="flex items-center gap-2">
-              <Input
-                autoFocus
-                placeholder="Enter task title..."
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="flex-1"
-              />
-              <Input
-                type="date"
-                value={newTaskDate}
-                onChange={(e) => setNewTaskDate(e.target.value)}
-                className="w-[140px] cursor-pointer"
-                title="Select Due Date"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" onClick={addTask}>
-                Add
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setIsAdding(false);
-                  setNewTaskTitle("");
-                  setNewTaskDate("");
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
+          <div className="flex items-center gap-2 mb-4">
+            <Input
+              autoFocus
+              placeholder="Enter task title..."
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="flex-1"
+            />
+            <Button size="sm" onClick={addTask}>
+              Add
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setIsAdding(false);
+                setNewTaskTitle("");
+              }}
+            >
+              Cancel
+            </Button>
           </div>
         )}
 
@@ -291,16 +256,11 @@ export function TaskList() {
                 />
                 <span
                   className={cn(
-                    "flex-1 text-sm text-foreground flex items-center justify-between",
+                    "flex-1 text-sm text-foreground",
                     task.completed && "line-through text-muted-foreground"
                   )}
                 >
-                  <span>{task.title}</span>
-                  <span className="ml-2 text-xs text-muted-foreground bg-secondary px-2 py-1 rounded-md">
-                    {task.dueDate 
-                      ? new Date(task.dueDate).toLocaleDateString() 
-                      : "No date"}
-                  </span>
+                  {task.title}
                 </span>
               </div>
             ))
